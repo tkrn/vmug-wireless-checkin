@@ -19,6 +19,10 @@
 	- Post any questions, comments, bug reports to the blog article below.
 
 5. Change Log
+	- Release 1.02 (10/17/2014)
+		1. Changed registration mode to print towards end of index.php as well. 
+		   Left out in verion 1.01
+		
 	- Release 1.01 (10/15/2014)
 		1. Hash for the pdf file name in the tmp directory.
 		2. Placed pdf label creation and print towards end of index.php for end user performance
@@ -30,4 +34,5 @@
 	- Author: Patrick Stasko
 	- Website: http://lvlnrd.com
 	- Blog Article: http://lvlnrd.com/raspberry-pi-edimax-wifi-dymo-printer-checkin-process-tutorial
+	- Git Repository: https://bitbucket.org/lvlnrd/vmug-wireless-checkin 
 	- Inital Release Date: 09/24/2014
