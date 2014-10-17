@@ -103,29 +103,26 @@ if ( isset($_POST['mode']) == true ) {
 			$response = $sql->execute();
 			
 		} catch (Exception $e) {
-		
-			// close the db connection
-			$db->close();
-			
 			$displayMsg = 'Failed. Check connection to database. Failed during update.';
 		}
 		
 		// deal with the response, display msg accordingly 	
 		if ( isset($response) & $response == true ) { 
-			// print the nametag label
-			$render = new NameTagPrinter(); 
-			$render->SetSaveDirectory($tmpdir);
-			$render->SendToPrinter("$firstname $lastname", $company); 
+		
+			session_start();
+			$_SESSION['firstname'] = $firstname;
+			$_SESSION['lastname'] = $lastname;
+			$_SESSION['company'] = $company;
 			
 			$displayMsg = "<strong>$firstname $lastname</strong>, you\'ve successfully checked in! Thank you!<br/>Please proceed to take your name tag label.";
 			
-			// close the db connection
-			$db->close();
-		
 		} else {
 			$displayMsg = 'Failed to check in! See volunteer!';
 		}
 		
+		// close the db connection
+		$db->close();
+			
 		// cleanup post variables
 		unset($_POST['firstname']);
 		unset($_POST['lastname']);
