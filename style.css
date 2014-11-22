@@ -1,15 +1,15 @@
-@charset "utf-8";
-/* CSS Document */
-body { font-family: Tahoma, Geneva, sans-serif; background-position: center bottom; background-image: url(images/background.png); background-repeat: no-repeat; }
-div#wrapper { margin-right: auto; margin-left: auto; width: 725px; }
-div#left-container { float: left; width: 300px; background: rgba(255, 255, 255, .92); min-height: 400px; padding: 15px; border-right-width:5px; border-right-style:dotted; }
-div#right-container { float: left; width: 325px; padding: 15px; padding-left: 40px; background: rgba(255, 255, 255, .92); min-height: 400px;  }
-div#left-container-reprint { float: left; width: 300px; background: rgba(255, 255, 255, .92); min-height: 200px; padding: 15px; border-right-width:5px; border-right-style:dotted; }
-div#right-container-reprint { float: left; width: 325px; padding: 15px; padding-left: 40px; background: rgba(255, 255, 255, .92); min-height: 200px;  }
-.form-tag { float:left; text-align: left;} 
-.register-button { width: 245px; height: 50px; }
-.styled-select select { width: 250px; }
-.checkin-button { width: 250px; height: 50px; }
-#register-form label.error { color: #F00; font-weight: bold; font-size: .75em; display: block; margin-bottom: -25px; }
-.span-top { width: 300px; position:fixed; text-align: center; }
-.float-middle { text-align: center; margin-top: 170px; }
+@charset"utf-8";
+body{font-family:Tahoma,Geneva,sans-serif;background-position:centerbottom;background-image:url(images/background.png);background-repeat:no-repeat;}
+div#wrapper{margin-right:auto;margin-left:auto;width:725px;}
+div#left-container{float:left;width:300px;background:rgba(255,255,255,.92);min-height:400px;padding:15px;border-right-width:5px;border-right-style:dotted;}
+div#right-container{float:left;width:325px;padding:15px;padding-left:40px;background:rgba(255,255,255,.92);min-height:400px;}
+div#left-container-reprint{float:left;width:300px;background:rgba(255,255,255,.92);min-height:200px;padding:15px;border-right-width:5px;border-right-style:dotted;}
+div#right-container-reprint{float:left;width:325px;padding:15px;padding-left:40px;background:rgba(255,255,255,.92);min-height:200px;}
+.form-tag{float:left;text-align:left;}
+.register-button{width:245px;height:50px;}
+.styled-selectselect{width:250px;}
+.checkin-button{width:250px;height:50px;}
+.random-button{width:250px;height:50px;}
+#register-formlabel.error{color:#F00;font-weight:bold;font-size:.75em;display:block;margin-bottom:-25px;}
+.span-top{width:300px;position:fixed;text-align:center;}
+.float-middle{text-align:center;margin-top:170px;}
