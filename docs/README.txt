@@ -19,6 +19,11 @@
 	- Post any questions, comments, bug reports to the blog article below.
 
 5. Change Log
+
+    - Release 1.03 (11/22/2014)
+		1. Added views in SQLite database for random user selection.
+		2. Added random.php page for random registered user selection.
+		
 	- Release 1.02 (10/17/2014)
 		1. Changed registration mode to print towards end of index.php as well. 
 		   Left out in verion 1.01
