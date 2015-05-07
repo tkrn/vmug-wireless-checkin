@@ -1,7 +1,7 @@
 <?php
 
 /** variables **/
-$dbfile 	= 'Checkin.db';		// no real need to modify
+$dbfile 	= 'database.db';		// no real need to modify
 $tmpdir 	= '/tmp/';  		// include trailing slash
 $password 	= 'password';		// password for admin page, A-Z,a-z,0-9
 

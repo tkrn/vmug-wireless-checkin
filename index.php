@@ -11,46 +11,35 @@ unset($displayMsg);
 /** post logic **/
 if ( isset($_POST['mode']) == true ) { 
 
-	require 'includes/NameTagPrinter.php';
-
-	if ( $_POST['mode'] == 'checkin' ) {
+	// create db connection
+	$db = new SQLite3($dbfile); 
 	
-		if ( $_POST['id'] > 0 ) {
-			
-			try { 
-				// create db connection
-				$db  = new SQLite3($dbfile); 	
+	// clean id + create Excel format of time		
+	$now_datetime = 25569 + time() / 86400;
 				
-				// clean id + create Excel format of time		
-				$datetime = 25569 + time() / 86400;
-				
-				if ( isset($_POST['id']) & intval($_POST['id']) > 0 ) {
-					$id = $_POST['id']; 
-				} else {
-					$id = 0;
-				}	
+	if ( $_POST['mode'] == 'checkin' ) {
+		
+		$id = $_POST['id'];
+		
+		if ( $id > 0 ) {
 						
-				// create update statement
-				$sql = "UPDATE preregistered SET datetime = '$datetime' WHERE id = $id;";
-				
-				// execute update statement			
-				$response = $db->exec($sql);
-				
-			} catch (Exception $e) {
-				// close the db connection
-				$db->close();
-				
-				$displayMsg = 'Failed. Check connection to database. Failed during update.';
-			}
-			
-			if ( isset($response) & $response == true & $id != 0 ) {
+			// prepare statement to update checkin_stamp
+			$sql = $db->prepare('UPDATE attendees SET checkin_stamp = :checkin_stamp WHERE id = :id');
+			$sql -> bindParam(':checkin_stamp',$now_datetime);
+			$sql -> bindParam(':id',$id);
+
+			// execute update statement			
+			$response = $sql->execute();
+
+			// re-query the user  data because all we have is an id!
+			if ( isset($response) & $response == true & $id > 0 ) {
 				
 				// select user for label print out
-				$sql = "SELECT * FROM preregistered WHERE id = '$id';";
+				$sql = $db->prepare('SELECT * FROM attendees WHERE id = :id;');
+				$sql -> bindValue(':id',$id);
 				
-				// query database
-				$reponse = $db->query($sql);
-				$row = $reponse->fetchArray();
+				// query database + fetch rows
+				$row = $sql->execute()->fetchArray();
 				
 				if ( count($row) > 0 ) { 
 				
@@ -58,53 +47,43 @@ if ( isset($_POST['mode']) == true ) {
 					$_SESSION['firstname'] = $row['firstname'];
 					$_SESSION['lastname'] = $row['lastname'];
 					$_SESSION['company'] = $row['company'];
+					$_SESSION['company_type'] = $row['company_type'];
 					
-					$displayMsg = "<strong>".$_SESSION['firstname']." ".$_SESSION['lastname']."</strong>, you\'ve successfully checked in! Thank you!<br />Please proceed to take your name tag label.";
-				} else {
-					$displayMsg = 'Failed. Invalid row id!';
-				}
+					$displayMsg = "<strong>".$_SESSION['firstname']." ".$_SESSION['lastname']."</strong> you\'ve successfully checked in! Thank you!<br />Please proceed to take your name tag label.";
+					
+				} else { $displayMsg = 'Failed. Invalid row id!'; }
 				
-				// close the db connection
-				$db->close();
-				
-			} else {
-				$displayMsg = 'Failed to check in! See volunteer!';
-			}
+			} else { $displayMsg = 'Failed to check in! See a volunteer!'; }
 								
 		}
-		
-		// cleanup post variables
-		unset($_POST['id']);
-		unset($_POST['mode']);
 		
 	}
 	elseif ( $_POST['mode'] == 'register' ) {
 		
 		try {
-			// create db connection
-			$db  = new SQLite3($dbfile); 	
-						
+								
 			// clean variables + create Excel format of time
 			$lastname = $_POST['lastname'];
 			$firstname = $_POST['firstname'];
 			$company = $_POST['company'];
+			$company_type = $_POST['company_type'];
 			$email = strtolower($_POST['email']);
-			$datetime = 25569 + time() / 86400;
-			
+					
 			// create insert statement
-			$sql = $db->prepare('INSERT INTO walkon (lastname,firstname,company,email,datetime) VALUES (:lastname,:firstname,:company,:email,:datetime)');
-			$sql -> bindValue(':lastname',$lastname,SQLITE3_TEXT);
-			$sql -> bindValue(':firstname',$firstname,SQLITE3_TEXT);
-			$sql -> bindValue(':company',$company,SQLITE3_TEXT);
-			$sql -> bindValue(':email',$email,SQLITE3_TEXT);
-			$sql -> bindValue(':datetime',$datetime,SQLITE3_TEXT);
+			$sql = $db->prepare('INSERT INTO "attendees" ("lastname","firstname","company","company_type","email","pre_registered","checkin_stamp") VALUES (:lastname,:firstname,:company,:company_type,:email,:pre_registered,:checkin_stamp)');
+			
+			$sql -> bindValue(':lastname',$lastname);
+			$sql -> bindValue(':firstname',$firstname);
+			$sql -> bindValue(':company',$company);
+			$sql -> bindValue(':company_type',$company_type);
+			$sql -> bindValue(':email',$email);
+			$sql -> bindValue(':pre_registered',0);
+			$sql -> bindValue(':checkin_stamp',$now_datetime);
 
 			// execute insert statement				
 			$response = $sql->execute();
 			
-		} catch (Exception $e) {
-			$displayMsg = 'Failed. Check connection to database. Failed during update.';
-		}
+		} catch (Exception $e) { $displayMsg = 'Failed. Check connection to database. Failed during update.'; }
 		
 		// deal with the response, display msg accordingly 	
 		if ( isset($response) & $response == true ) { 
@@ -113,24 +92,20 @@ if ( isset($_POST['mode']) == true ) {
 			$_SESSION['firstname'] = $firstname;
 			$_SESSION['lastname'] = $lastname;
 			$_SESSION['company'] = $company;
+			$_SESSION['company_type'] = $company_type;
 			
 			$displayMsg = "<strong>$firstname $lastname</strong>, you\'ve successfully checked in! Thank you!<br/>Please proceed to take your name tag label.";
 			
-		} else {
-			$displayMsg = 'Failed to check in! See volunteer!';
-		}
-		
-		// close the db connection
-		$db->close();
+		} else { $displayMsg = 'Failed to check in! See a volunteer!'; }
 			
-		// cleanup post variables
-		unset($_POST['firstname']);
-		unset($_POST['lastname']);
-		unset($_POST['company']);
-		unset($_POST['email']);
-		unset($_POST['mode']);
-		
 	}
+	
+	// close the db connection
+	$db->close();
+	
+	// cleanup post variables
+	unset($_POST);
+	
 }
 
 ?>
@@ -171,10 +146,10 @@ if ( isset($_POST['mode']) == true ) {
 							}
 						},
 						messages: {
-							firstname: "Please enter your firstname",
-							lastname: "Please enter your lastname",
-							email: "Please enter a valid email address",
-							company: "Please enter your company"
+							firstname: " !!!",
+							lastname: " !!!",
+							email: " !!!",
+							company: " !!!",
 						},
 						submitHandler: function(form) {
 							form.submit();
@@ -221,25 +196,19 @@ if ( isset($_POST['mode']) == true ) {
 								$db  = new SQLite3($dbfile);
 														
 								// query table from db
-								$preregistered = $db->query('SELECT * FROM preregistered WHERE datetime IS NULL;');
+								$pre_registered_list = $db->query('SELECT * FROM pre_registered_list');
 																							
-								while ($row = $preregistered->fetchArray()) {
-									//check if user is not already checked in
-									if ( strlen(trim($row['datetime'])) == 0 ) {																						
-										//clean up long company titles.
-										if ( strlen(trim($row["company"])) > 15 ) { 
-											$companyText = trim(substr(trim($row["company"]), 0, 15)) . '..';
-										} else {
-											$companyText = trim($row["company"]);								
-										}
-										
-										//display html to show as listbox
-										if ( strlen($companyText) == 0 ) {								
-											echo '<option value="', $row["id"],'">', $row["lastname"], ', ', $row["firstname"],'</option>';									
-										} else {								
-											echo '<option value="', $row["id"],'">', $row["lastname"], ', ', $row["firstname"], ' - ', $companyText ,'</option>';										
-										}
+								while ($row = $pre_registered_list->fetchArray()) {
+									
+									$companyText = trim($row["company"]);
+																		
+									//display html to show as listbox
+									if ( strlen($companyText) == 0 ) {								
+										echo '<option value="', $row["id"],'">', $row["lastname"], ', ', $row["firstname"],'</option>';									
+									} else {								
+										echo '<option value="', $row["id"],'">', $row["lastname"], ', ', $row["firstname"], ' - ', $companyText ,'</option>';										
 									}
+			
 								}
 								
 								// close the db connection
@@ -261,10 +230,14 @@ if ( isset($_POST['mode']) == true ) {
         <div id="right-container">
             <h2>Walk-on Registration</h2>
             <form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="POST" id="register-form">
-                <span class="form-tag">First Name:</span><br/><input type="text" name="firstname" size="35"><br/><br/>
-                <span class="form-tag">Last Name:</span><br/><input type="text" name="lastname" size="35"><br/><br/>
-                <span class="form-tag">Email Address:</span><br/><input type="text" name="email" size="35"><br/><br/>
-                <span class="form-tag">Company:</span><br/><input name="company" type="text" size="35"><br/><br/>
+				<label for="firstname">First Name:</label><input type="text" name="firstname" size="35"><br/><br/>
+                <label for="lastname">Last Name:</label><input type="text" name="lastname" size="35"><br/><br/>
+                <label for="email">Email Address:</label><input type="text" name="email" size="35"><br/><br/>
+                <label for="company">Company:</label><input name="company" type="text" size="35"><br/><br/>
+				<input type="radio" name="company_type" value="1" checked> Customer &nbsp;
+				<input type="radio" name="company_type" value="2"> Partner &nbsp;
+				<input type="radio" name="company_type" value="3"> Vendor &nbsp;
+				<br/><br/>
                 <input type="hidden" name="mode" value="register">
                 <input type="submit" value="Register" class="register-button">
             </form>
@@ -277,6 +250,8 @@ if ( isset($_POST['mode']) == true ) {
 //print after page load, end user experience is quicker
 if ( isset($_SESSION) ) {
 
+	require 'includes/NameTagPrinter.php';
+	
 	$render = new NameTagPrinter(); 
 	$render->SetSaveDirectory($tmpdir);
 	$render->SendToPrinter($_SESSION['firstname'] . ' ' . $_SESSION['lastname'], $_SESSION['company']); 

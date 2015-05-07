@@ -82,9 +82,9 @@
 				
 				// if upload is successful
 				if ( isset($uploadSuccessful) ) {
-				
+									
 					require 'includes/PHPExcel.php';
-				
+					
 					// create PHPExcel readonly object
 					$objReader = PHPExcel_IOFactory::createReader('Excel2007');
 					$objReader->setReadDataOnly(true);
@@ -92,27 +92,30 @@
 					// load file
 					$objPHPExcel = $objReader->load($uniqueUpload);
 					
+					## NEED TO INSERT LOGIC FOR SHEETS
+					
 					// set active sheet, 0 = first sheet
 					$objPHPExcel->setActiveSheetIndex(0); 
-					
+
 					// field range to grab
-					$focusRange = 'A1:E' . $objPHPExcel->getActiveSheet()->getHighestRow();
-					
-					// get sheet data, sheet 0 are preregistered users
+					$focusRange = 'A1:D' . $objPHPExcel->getActiveSheet()->getHighestRow();
+
+					// get sheet data, sheet 0 are attendees
 					// see documentation http://bit.ly/1qKWJnF
 					$sheetData = $objPHPExcel->getActiveSheet()->rangeToArray($focusRange,null,false,false,true);
 					
 					// put SQLite3 connection in a try/catch
-					try { 	
-										
-						// open db connection
-						$db  = new SQLite3($dbfile); 	
-						
+					try { 						
+													
 						// do a large insert, performance is better on one large 
 						// insert than individual on rasberry pi
 						// see http://bit.ly/1rmtYNx and http://bit.ly/1DrbGj5
 						
 						if ( count($sheetData) > 0 ) {
+							
+							// open db connection
+							$db  = new SQLite3($dbfile); 
+							
 							$db->exec('BEGIN;');
 							
 							// go through each row in excel spreadsheet
@@ -122,29 +125,31 @@
 								$lastname = $row['A'];
 								$firstname = $row['B'];
 								$company = $row['C'];
+								$company_type = $row['D'];
 								
 								// create insert statement
-								$sql = $db->prepare('INSERT INTO preregistered (lastname,firstname,company) VALUES (:lastname,:firstname,:company)');
-								$sql -> bindValue(':lastname',$lastname,SQLITE3_TEXT);
-								$sql -> bindValue(':firstname',$firstname,SQLITE3_TEXT);
-								$sql -> bindValue(':company',$company,SQLITE3_TEXT);
-
+								$sql = $db->prepare('INSERT INTO "attendees" ("lastname","firstname","company","company_type","pre_registered") VALUES (:lastname,:firstname,:company,:company_type,:pre_registered)');
+								
+								$sql -> bindValue(':lastname',$lastname);
+								$sql -> bindValue(':firstname',$firstname);
+								$sql -> bindValue(':company',$company);
+								$sql -> bindValue(':company_type',$company_type);
+								$sql -> bindValue(':pre_registered',1);
+								
 								// execute insert statement				
 								$response = $sql->execute();
 								
 							}
 							
 							$db->exec('COMMIT;');
-								
+							
+							$db->close();
+							
 						}	
-						
-						$db->close();
 						
 						$displayMsg = 'Successfully inserted records into the preregistered table!';	
 						
-					} catch (Exception $e) { 				
-						$displayMsg = 'Failed. Unable to insert records into the preregistered table.';				
-					}
+					} catch (Exception $e) { $displayMsg = 'Failed. Unable to insert records into the preregistered table.'; }
 					
 					// ensure we are disconnected from any worksheets
 					$objPHPExcel->disconnectWorksheets();
@@ -157,77 +162,34 @@
 			
 			} elseif (isset($_POST['export'])) {
 			
-				require 'includes/PHPExcel.php';
-				
 				try {
+					
+					require 'includes/PHPExcel.php';
 				
 					// create phpexcel object
 					$objPHPExcel = new PHPExcel();
 					
-					// create 2 additional sheets for a total of 3 sheets
+					// create 1 sheet
 					$objPHPExcel->createSheet(1);
-					$objPHPExcel->createSheet(2);
 					
 					// open up the database
 					$db  = new SQLite3($dbfile);
-					
-					//
-					// preregistered table logic
-					//
-					
+									
 					// query table from db
-					$preregistered = $db->query('SELECT * FROM preregistered;');
+					$preregistered = $db->query('SELECT * FROM attendees');
 					
 					// set sheet 0 active, rename sheet
 					$objPHPExcel->setActiveSheetIndex(0);
-					$objPHPExcel->getActiveSheet()->setTitle('Preregistered');
+					$objPHPExcel->getActiveSheet()->setTitle('ATTENDEES');
 					
 					// populate header
 					$objPHPExcel->getActiveSheet()->SetCellValue('A1', 'LAST NAME');
 					$objPHPExcel->getActiveSheet()->SetCellValue('B1', 'FIRST NAME');
 					$objPHPExcel->getActiveSheet()->SetCellValue('C1', 'COMPANY');
-					$objPHPExcel->getActiveSheet()->SetCellValue('D1', 'DATETIME CHECKIN (UTC)');
-					
-					// set boldness
-					$objPHPExcel->getActiveSheet()->getStyle('A1')->getFont()->setBold(true);
-					$objPHPExcel->getActiveSheet()->getStyle('B1')->getFont()->setBold(true);
-					$objPHPExcel->getActiveSheet()->getStyle('C1')->getFont()->setBold(true);
-					$objPHPExcel->getActiveSheet()->getStyle('D1')->getFont()->setBold(true);
-				
-					// iterate through database dumping to excel
-					while ($row = $preregistered->fetchArray()) {
-						$rownum = $objPHPExcel->getActiveSheet()->getHighestRow() + 1;
-						$objPHPExcel->getActiveSheet()->SetCellValue('A'.$rownum, $row['lastname']);
-						$objPHPExcel->getActiveSheet()->SetCellValue('B'.$rownum, $row['firstname']);
-						$objPHPExcel->getActiveSheet()->SetCellValue('C'.$rownum, $row['company']);
-						$objPHPExcel->getActiveSheet()->SetCellValue('D'.$rownum, $row['datetime']);
-						
-						// set datetime format
-						$objPHPExcel->getActiveSheet()->getStyle('D'.$rownum)->getNumberFormat()->setFormatCode(PHPExcel_Style_NumberFormat::FORMAT_DATE_DATETIME);
-					}
-									
-					// autosize columns
-					foreach(range('A','D') as $cid) {
-						$objPHPExcel->getActiveSheet()->getColumnDimension($cid)->setAutoSize(true);
-					}
-					
-					//
-					// walkon table logic
-					//
-
-					// query table from db
-					$walkons = $db->query('SELECT * FROM walkon;');
-					
-					// set sheet 1 active, rename
-					$objPHPExcel->setActiveSheetIndex(1);
-					$objPHPExcel->getActiveSheet()->setTitle('Walkons');
-					
-					// populate header
-					$objPHPExcel->getActiveSheet()->SetCellValue('A1', 'LAST NAME');
-					$objPHPExcel->getActiveSheet()->SetCellValue('B1', 'FIRST NAME');
-					$objPHPExcel->getActiveSheet()->SetCellValue('C1', 'COMPANY');
-					$objPHPExcel->getActiveSheet()->SetCellValue('D1', 'EMAIL ADDRESS');
-					$objPHPExcel->getActiveSheet()->SetCellValue('E1', 'DATETIME CHECKIN (UTC)');
+					$objPHPExcel->getActiveSheet()->SetCellValue('D1', 'COMPANY TYPE');
+					$objPHPExcel->getActiveSheet()->SetCellValue('E1', 'EMAIL ADDRESS');
+					$objPHPExcel->getActiveSheet()->SetCellValue('F1', 'PRE-REGISTERED');
+					$objPHPExcel->getActiveSheet()->SetCellValue('G1', 'DATETIME CHECKIN (UTC)');
 					
 					// set boldness
 					$objPHPExcel->getActiveSheet()->getStyle('A1')->getFont()->setBold(true);
@@ -235,68 +197,64 @@
 					$objPHPExcel->getActiveSheet()->getStyle('C1')->getFont()->setBold(true);
 					$objPHPExcel->getActiveSheet()->getStyle('D1')->getFont()->setBold(true);
 					$objPHPExcel->getActiveSheet()->getStyle('E1')->getFont()->setBold(true);
+					$objPHPExcel->getActiveSheet()->getStyle('F1')->getFont()->setBold(true);
+					$objPHPExcel->getActiveSheet()->getStyle('G1')->getFont()->setBold(true);
 					
 					// iterate through database dumping to excel
-					while ($row = $walkons->fetchArray()) {
+					while ($row = $preregistered->fetchArray()) {
 						$rownum = $objPHPExcel->getActiveSheet()->getHighestRow() + 1;
 						$objPHPExcel->getActiveSheet()->SetCellValue('A'.$rownum, $row['lastname']);
 						$objPHPExcel->getActiveSheet()->SetCellValue('B'.$rownum, $row['firstname']);
 						$objPHPExcel->getActiveSheet()->SetCellValue('C'.$rownum, $row['company']);
-						$objPHPExcel->getActiveSheet()->SetCellValue('D'.$rownum, $row['email']);
-						$objPHPExcel->getActiveSheet()->SetCellValue('E'.$rownum, $row['datetime']);
+						$objPHPExcel->getActiveSheet()->SetCellValue('D'.$rownum, $row['company_type']);
+						$objPHPExcel->getActiveSheet()->SetCellValue('E'.$rownum, $row['email']);
+						$objPHPExcel->getActiveSheet()->SetCellValue('F'.$rownum, $row['pre_registered']);
+						$objPHPExcel->getActiveSheet()->SetCellValue('G'.$rownum, $row['checkin_stamp']);
 						
 						// set datetime format
-						$objPHPExcel->getActiveSheet()->getStyle('E'.$rownum)->getNumberFormat()->setFormatCode(PHPExcel_Style_NumberFormat::FORMAT_DATE_DATETIME);
+						$objPHPExcel->getActiveSheet()->getStyle('G'.$rownum)->getNumberFormat()->setFormatCode(PHPExcel_Style_NumberFormat::FORMAT_DATE_DATETIME);
+						
 					}
-					
-					// set datetime format
-					$objPHPExcel->getActiveSheet()->getStyle('E')->getNumberFormat()->setFormatCode(PHPExcel_Style_NumberFormat::FORMAT_DATE_DATETIME);
-					
+									
 					// autosize columns
-					foreach(range('A','E') as $cid) {
+					foreach(range('A','G') as $cid) {
 						$objPHPExcel->getActiveSheet()->getColumnDimension($cid)->setAutoSize(true);
 					}
 					
 					//				
-					// set and rename sheet for ---KEY---
+					// set and rename sheet for ABOUT
 					//
 					
 					// set sheet 2 active, rename
-					$objPHPExcel->setActiveSheetIndex(2);
-					$objPHPExcel->getActiveSheet()->setTitle('---KEY---');
+					$objPHPExcel->setActiveSheetIndex(1);
+					$objPHPExcel->getActiveSheet()->setTitle('ABOUT');
 
 					// add key data, static data
-					$objPHPExcel->getActiveSheet()->SetCellValue('A1', 'Preregistered Sheet');
-					$objPHPExcel->getActiveSheet()->SetCellValue('A2', 'Column A = LAST NAME');
-					$objPHPExcel->getActiveSheet()->SetCellValue('A3', 'Column B = FIRST NAME');
-					$objPHPExcel->getActiveSheet()->SetCellValue('A4', 'Column C = COMPANY');
-					$objPHPExcel->getActiveSheet()->SetCellValue('A5', 'Column D = DATETIME CHECKIN (UTC)');
-					$objPHPExcel->getActiveSheet()->SetCellValue('B1', 'Walk-Ons Sheet');
-					$objPHPExcel->getActiveSheet()->SetCellValue('B2', 'Column A = LAST NAME');
-					$objPHPExcel->getActiveSheet()->SetCellValue('B3', 'Column B = FIRST NAME');
-					$objPHPExcel->getActiveSheet()->SetCellValue('B4', 'Column C = COMPANY');
-					$objPHPExcel->getActiveSheet()->SetCellValue('B5', 'Column D = EMAIL ADDRESS');
-					$objPHPExcel->getActiveSheet()->SetCellValue('B5', 'Column E = DATETIME CHECKIN (UTC)');
-					$objPHPExcel->getActiveSheet()->SetCellValue('C1', 'Credits');
-					$objPHPExcel->getActiveSheet()->SetCellValue('C2', 'Author: Patrick Stasko');
-					$objPHPExcel->getActiveSheet()->SetCellValue('C3', 'Website: http://lvlnrd.com');
-					$objPHPExcel->getActiveSheet()->SetCellValue('C4', 'Instructions: http://bit.ly/');
-					$objPHPExcel->getActiveSheet()->SetCellValue('C5', 'Notes: Developed by and for the Cleveland VMUG');
-					$objPHPExcel->getActiveSheet()->SetCellValue('C6', 'http://vmug.com/cleveland For use by all!');
-
+					$objPHPExcel->getActiveSheet()->SetCellValue('A1', 'CREDITS');
+					$objPHPExcel->getActiveSheet()->SetCellValue('A2', 'Author: Patrick Stasko');
+					$objPHPExcel->getActiveSheet()->SetCellValue('A3', 'Website: http://lvlnrd.com');
+					$objPHPExcel->getActiveSheet()->SetCellValue('A4', '');
+					$objPHPExcel->getActiveSheet()->SetCellValue('A5', 'Notes: Developed by and for the Cleveland VMUG');
+					$objPHPExcel->getActiveSheet()->SetCellValue('A6', 'http://vmug.com/cleveland');
+					$objPHPExcel->getActiveSheet()->SetCellValue('A7', '');
+					$objPHPExcel->getActiveSheet()->SetCellValue('A8', 'CUSTOMER TYPES');
+					$objPHPExcel->getActiveSheet()->SetCellValue('A9', '1 = Customer');
+					$objPHPExcel->getActiveSheet()->SetCellValue('A10', '2 = Partner');
+					$objPHPExcel->getActiveSheet()->SetCellValue('A11', '3 = Vendor');
+					
 					// set boldness
 					$objPHPExcel->getActiveSheet()->getStyle('A1')->getFont()->setBold(true);
-					$objPHPExcel->getActiveSheet()->getStyle('B1')->getFont()->setBold(true);
-					$objPHPExcel->getActiveSheet()->getStyle('C1')->getFont()->setBold(true);
+					$objPHPExcel->getActiveSheet()->getStyle('A8')->getFont()->setBold(true);
 					
 					// autosize columns
-					foreach(range('A','C') as $cid) {
-						$objPHPExcel->getActiveSheet()->getColumnDimension($cid)->setAutoSize(true);
-					}
+					$objPHPExcel->getActiveSheet()->getColumnDimension('A')->setAutoSize(true);
+					
+					// set the filename
+					$filename = date("Ymd_His") . "_Export.xls";
 					
 					// redirect output to a client web browser (Excel5)
 					header('Content-Type: application/vnd.ms-excel');
-					header('Content-Disposition: attachment;filename="Checkin-Export.xls"');
+					header('Content-Disposition: attachment;filename='.$filename);
 					header('Cache-Control: max-age=0');
 
 					// save the file in phpexcel object
@@ -314,8 +272,7 @@
 				
 				} catch (Exception $e) {
 					$displayMsg = 'Failed. To export data! Check database connection.';
-				}
-					
+				}	
 			
 			} elseif (isset($_POST['optimize'])) {
 			
@@ -335,62 +292,25 @@
 					$displayMsg = 'Failed to optimize the database!';
 				}
 				
-			} elseif (isset($_POST['truncate-preregistered'])) {
-			
-				try {
-					$db  = new SQLite3($dbfile);
-					
-					$response = $db->exec('DELETE FROM preregistered;');
-					
-					if ( $response == 1 ) {
-						$displayMsg = 'Truncated preregistered table successfully!';
-					} else {
-						$displayMsg = 'Failed to truncate the preregistered table!';
-					}
-					
-					$db->close();
-					
-				} catch (Exception $e)  {
-					$displayMsg = 'Failed to truncate the preregistered table!';
-				}
+			} elseif (isset($_POST['truncate'])) {
 				
-			} elseif (isset($_POST['truncate-walkon'])) {
-			
 				try {
 					$db  = new SQLite3($dbfile);
 					
-					$response = $db->exec('DELETE FROM walkon;');
+					$response = $db->exec('DELETE FROM attendees');
 					
 					if ( $response == 1 ) {
-						$displayMsg = 'Truncated walkon table successfully!';
+						$displayMsg = 'Truncated table successfully!';
 					} else {
-						$displayMsg = 'Failed to truncate the walkon table!';
+						$displayMsg = 'Failed to truncate the table!';
 					}
 					
 					$db->close();
 					
 				} catch (Exception $e) {
-					$displayMsg = 'Failed to truncate the walkon table!';
+					$displayMsg = 'Failed to truncate the table!';
 				}
-			
-			} elseif (isset($_POST['truncate-both'])) {
 				
-				try {
-					$db  = new SQLite3($dbfile);
-					
-					$response = $db->exec('DELETE FROM preregistered; DELETE FROM walkon;');
-					
-					if ( $response == 1 ) {
-						$displayMsg = 'Truncated both tables successfully!';
-					} else {
-						$displayMsg = 'Failed to truncate both tables!';
-					}
-					
-					$db->close();
-					
-				} catch (Exception $e) {
-					$displayMsg = 'Failed to truncate both tables!';
-				}
 			} elseif (isset($_POST['time'])) {
 				
 				try {
@@ -410,8 +330,8 @@
 				} catch (Exception $e) {
 					$displayMsg = 'Failed to set system time!';
 				}
-			}
-			elseif (isset($_POST['test-print'])) {
+				
+			} elseif (isset($_POST['test-print'])) {
 				
 				try {
 					// need library to print
@@ -430,6 +350,7 @@
 				} catch (Exception $e) {
 					$displayMsg = 'Failed to send the print command to the label printer!<br/>Check CUPS configuration. Ensure default printer is selected.';
 				}
+				
 			}
 		
 		} else {
@@ -437,11 +358,11 @@
 		}
 		
 		// cleanup
-		//unset($_POST);
+		unset($_POST);
 		
 		// debug info
-		// var_dump($_POST);
-		// echo $displayMsg;
+		//var_dump($_POST);
+		//echo $displayMsg;
 	}
 
 ?>
@@ -491,18 +412,18 @@
 		<strong>1. Enter master password :</strong><br /><br />
 		<input name="password" type="password" style="width: 235px" />
 		<br /><br /><br />
+		There is no error checking! ENSURE a correct Excel layout upon upload!<br/><br/><br/>
 		<strong>2. Select function :</strong>
 		<br /><br />
 		<input name="import-file" type="file" />
 		<br /><br />
-		<input name="import" type="submit" value="Import Data" style="width: 235px" /> &nbsp;&nbsp;&nbsp; <input name="truncate-preregistered" type="submit" value="Truncate 'preregistered' Table" style="width: 235px" />
+		<input name="import" type="submit" value="Import Data" style="width: 235px" /> &nbsp;&nbsp;&nbsp; <input name="truncate" type="submit" value="Truncate Table" style="width: 235px" />
 		<br /><br />
-		<input name="export" type="submit" value="Export All Data" style="width: 235px" /> &nbsp;&nbsp;&nbsp; <input name="truncate-walkon" type="submit" value="Truncate 'walkon' Table" style="width: 235px" />
+		<input name="export" type="submit" value="Export All Data" style="width: 235px" /> &nbsp;&nbsp;&nbsp; <input name="test-print" type="submit" value="Test Print Label" style="width: 235px" />
 		<br /><br />
-		<input name="optimize" type="submit" value="Optimize the Database" style="width: 235px" /> &nbsp;&nbsp;&nbsp; <input name="truncate-both" type="submit" value="Truncate Both Tables" style="width: 235px" />
+		<input name="optimize" type="submit" value="Optimize the Database" style="width: 491px; margin-left: 17px;" /> &nbsp;&nbsp;&nbsp; 
 		<br /><br />
-		<input name="test-print" type="submit" value="Test Print Label" style="width: 235px" />
-		<br /><br /><br />
+
 		Month:
 		<select name="month" id="month">
 			<option value="01">01</option>
@@ -662,14 +583,13 @@
 	Raspberry Pi does not have an internal clock, if it is not connected to the internet with ntpd running,<br />
 	it is required to set date/time at <strong>each</strong> boot.<br /><br />
 	<strong>Import Data Format</strong>: Excel 97-2003 Workbook (xls) or Excel Workbook (xlsx)<br /><br />
-	<strong>Import Data</strong>: Excel must match the expected schema input with <u>no headings</u>: <br/>Column A (Last Name), Column B (First Name), Column C (Company)
-	<br /><br />
+	<strong>Import Data</strong>: Excel must match the expected schema input with <u>no headings</u>: <br/><h3>Column A (Last Name), Column B (First Name), Column C (Company), Column D (Company Type)</h3>
 	<hr />
 	<h2>Credits</h2>
 	<strong>Author</strong>: Patrick Stasko<br /><br />
 	<strong>Website</strong>: <a href="http://lvlnrd.com" target="_blank">lvlnrd.com</a>, <a href="http://vmug.com/cleveland" target="_blank">vmug.com/cleveland</a><br /><br />
 	<strong>Instructions</strong>: <a href="http://lvlnrd.com/raspberry-pi-dymo-printer-checkin-process-tutorial-cleveland-vmug" target="_blank">lvlnrd.com/raspberry-pi-dymo-printer-checkin-process-tutorial-cleveland-vmug</a><br /><br />
-	<strong>Notes</strong>: This was developed for and by the Cleveland VMware User Group chapter.<br />Thank you Jason Sehlmeyer for testing and providing the DYMO printer. For use by all! 
+	<strong>Notes</strong>: This was developed for and by the Cleveland VMware User Group chapter.<br />Thank you Jason Sehlmeyer for testing and providing the DYMO printer.
 	<br />
 </div>
 </body>
